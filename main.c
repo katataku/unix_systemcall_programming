@@ -1,16 +1,16 @@
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define READ_INDEX	0
 #define WRITE_INDEX 1
 
-#define BADFD		-1
+#define BADFD -1
 typedef enum
 {
 	T_WORD,
@@ -32,48 +32,52 @@ enum
 	INWORD
 };
 
-static void	redirect(int srcfd,char *srcfile,int dstfd, char*dstfile, bool append,bool bckgrnd)
+static void redirect(int   srcfd,
+					 char *srcfile,
+					 int   dstfd,
+					 char *dstfile,
+					 bool  append,
+					 bool  bckgrnd)
 {
-	int flags,fd;
+	int flags, fd;
 
-	if(srcfd == 0 && bckgrnd)
+	if (srcfd == 0 && bckgrnd)
 	{
-		strcpy(srcfile,"/dev/null");
+		strcpy(srcfile, "/dev/null");
 		srcfd = BADFD;
 	}
-	if(srcfd != 0)
+	if (srcfd != 0)
 	{
-		if(srcfd > 0)
+		if (srcfd > 0)
 		{
-			dup2(srcfd,0);
-		}
-		else if(open(srcfile,O_RDONLY,0) != -1)
+			dup2(srcfd, 0);
+		} else if (open(srcfile, O_RDONLY, 0) != -1)
 		{
-			fprintf(stderr, "CAnt open %s\n",srcfile);
+			fprintf(stderr, "CAnt open %s\n", srcfile);
 			exit(0);
 		}
 	}
-	if(dstfd != 1)
+	if (dstfd != 1)
 	{
 		close(1);
-		if(dstfd > 1 )
+		if (dstfd > 1)
 		{
-			dup2(dstfd,1);
-		}
-		else
+			dup2(dstfd, 1);
+		} else
 		{
 			flags = O_WRONLY | O_CREAT;
-			if(!append)
+			if (!append)
 				flags |= O_TRUNC;
-			if(open(dstfile,flags,0666) == -1){
-				fprintf(stderr, "CAnt create %s",dstfile);
+			if (open(dstfile, flags, 0666) == -1)
+			{
+				fprintf(stderr, "CAnt create %s", dstfile);
 				exit(0);
 			}
-			if(append)
-				lseek(1,0L,2);
+			if (append)
+				lseek(1, 0L, 2);
 		}
 	}
-	for (fd = 3;fd<20;fd++)
+	for (fd = 3; fd < 20; fd++)
 		close(fd);
 }
 
@@ -105,9 +109,9 @@ static int invoke(int	 argc,
 		fprintf(stderr, "Cant execurte %s\n", argv[0]);
 		exit(0);
 	default:
-		if(srcfd > 0)
+		if (srcfd > 0)
 			close(srcfd);
-		if(dstfd>1)
+		if (dstfd > 1)
 			close(dstfd);
 		if (bckgrnd)
 			printf("%d\n", pid);
