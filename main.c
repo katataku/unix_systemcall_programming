@@ -3,9 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #define READ_INDEX	0
 #define WRITE_INDEX 1
 
+#define BADFD		-1
 typedef enum
 {
 	T_WORD,
@@ -26,6 +31,51 @@ enum
 	INQUOTE,
 	INWORD
 };
+
+static void	redirect(int srcfd,char *srcfile,int dstfd, char*dstfile, bool append,bool bckgrnd)
+{
+	int flags,fd;
+
+	if(srcfd == 0 && bckgrnd)
+	{
+		strcpy(srcfile,"/dev/null");
+		srcfd = BADFD;
+	}
+	if(srcfd != 0)
+	{
+		if(srcfd > 0)
+		{
+			dup2(srcfd,0);
+		}
+		else if(open(srcfile,O_RDONLY,0) != -1)
+		{
+			fprintf(stderr, "CAnt open %s\n",srcfile);
+			exit(0);
+		}
+	}
+	if(dstfd != 1)
+	{
+		close(1);
+		if(dstfd > 1 )
+		{
+			dup2(dstfd,1);
+		}
+		else
+		{
+			flags = O_WRONLY | O_CREAT;
+			if(!append)
+				flags |= O_TRUNC;
+			if(open(dstfile,flags,0666) == -1){
+				fprintf(stderr, "CAnt create %s",dstfile);
+				exit(0);
+			}
+			if(append)
+				lseek(1,0L,2);
+		}
+	}
+	for (fd = 3;fd<20;fd++)
+		close(fd);
+}
 
 bool isbuiltin()
 {
@@ -54,7 +104,15 @@ static int invoke(int	 argc,
 		execvp(argv[0], argv);
 		fprintf(stderr, "Cant execurte %s\n", argv[0]);
 		exit(0);
+	default:
+		if(srcfd > 0)
+			close(srcfd);
+		if(dstfd>1)
+			close(dstfd);
+		if (bckgrnd)
+			printf("%d\n", pid);
 	}
+	return (pid);
 }
 
 static int gettoken(char *word)
@@ -140,7 +198,6 @@ static int gettoken(char *word)
 #define MAXARG		20
 #define MAXFILENAME 200
 #define MAXWORD		200
-#define BADFD		-1
 static int command(int *waitpid, bool makepipe, int *pipefdp)
 {
 	TOKEN token, term;
@@ -220,7 +277,14 @@ static int command(int *waitpid, bool makepipe, int *pipefdp)
 				*pipefdp = pfd[WRITE_INDEX];
 				srcfd	 = pfd[READ_INDEX];
 			}
-			//			pid = invoke
+			pid = invoke(argc,
+						 argv,
+						 srcfd,
+						 srcfile,
+						 dstfd,
+						 dstfile,
+						 append,
+						 term == T_AMP);
 			for (int i = 0; i < argc; i++)
 				printf("%d:%s \n", i, argv[i]);
 			if (token != T_BAR)
